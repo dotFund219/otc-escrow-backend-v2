@@ -42,7 +42,7 @@ export class OrdersService {
 
     const where: any = {};
 
-    // ✅ 기본은 OPEN만: orderbook는 보통 미체결만 보여줌
+    // ✅ By default show only OPEN: orderbook typically shows only unsettled orders
     if (q.status) {
       where.status = q.status;
     }

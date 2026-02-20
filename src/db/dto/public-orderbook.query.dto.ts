@@ -15,12 +15,12 @@ export class PublicOrderBookQueryDto {
   @IsInt()
   chainId?: number;
 
-  // 기본은 OPEN만 내려주게 할 거라 optional
+  // By default we'll return only OPEN, so this is optional
   @IsOptional()
   @IsIn(['OPEN', 'CANCELLED', 'TAKEN'])
   status?: 'OPEN' | 'CANCELLED' | 'TAKEN';
 
-  // 특정 pair만 보고 싶을 때
+  // When you want to filter by a specific token pair
   @IsOptional()
   @Matches(/^0x[a-fA-F0-9]{40}$/)
   sellToken?: string;
