@@ -9,6 +9,7 @@ import { OtcOrderEntity } from '../db/entities/otc-order.entity';
 import { OtcOrderEventEntity } from '../db/entities/otc-order-event.entity';
 
 import abi from './abi/OTCOrders.abi.json';
+import escorwABI from './abi/OTCEscrow.abi.json';
 
 function envInt(name: string, fallback: number) {
   const v = process.env[name];
@@ -25,12 +26,17 @@ export class OtcOrdersIndexerService implements OnModuleInit {
   private readonly chunkSize = envInt('SYNC_CHUNK_SIZE', 2000);
 
   private readonly rpcUrl = process.env.RPC_URL || '';
-  private readonly contract = (
+  private readonly orderContract = (
     process.env.OTC_ORDERS_ADDRESS || ''
+  ).toLowerCase();
+
+  private readonly escrowContract = (
+    process.env.OTC_ESCROW_ADDRESS || ''
   ).toLowerCase();
 
   private provider!: JsonRpcProvider;
   private readonly iface = new Interface(abi as any);
+  private readonly escrowIface = new Interface(escorwABI as any);
 
   private readonly stateKey = `otc_orders:${this.chainId}`;
 
@@ -40,6 +46,12 @@ export class OtcOrdersIndexerService implements OnModuleInit {
     this.iface.getEvent('OrderCancelled')!.topicHash;
   private readonly topicOrderTaken =
     this.iface.getEvent('OrderTaken')!.topicHash;
+
+  private readonly topicSubmitDeliveryTx =
+    this.escrowIface.getEvent('DeliverySubmitted')!.topicHash;
+
+  private readonly topicConfirmReceipt =
+    this.escrowIface.getEvent('ReceiptConfirmed')!.topicHash;
 
   constructor(
     @InjectRepository(SyncStateEntity)
@@ -52,7 +64,7 @@ export class OtcOrdersIndexerService implements OnModuleInit {
 
   async onModuleInit() {
     try {
-      if (!this.rpcUrl || !this.contract) {
+      if (!this.rpcUrl || !this.orderContract) {
         this.logger.warn(
           'Missing RPC_HTTP_URL or OTC_ORDERS_ADDRESS. Indexer disabled.',
         );
@@ -77,8 +89,12 @@ export class OtcOrdersIndexerService implements OnModuleInit {
       where: { key: this.stateKey },
     });
     if (!found) {
+      const latest = await this.provider.getBlockNumber();
       await this.syncRepo.save(
-        this.syncRepo.create({ key: this.stateKey, lastProcessedBlock: '0' }),
+        this.syncRepo.create({
+          key: this.stateKey,
+          lastProcessedBlock: String(latest),
+        }),
       );
     }
   }
@@ -134,15 +150,34 @@ export class OtcOrdersIndexerService implements OnModuleInit {
     const logs = [
       ...(await this.getLogsByTopic(
         this.topicOrderCreated,
+        this.orderContract,
         fromBlock,
         toBlock,
       )),
       ...(await this.getLogsByTopic(
         this.topicOrderCancelled,
+        this.orderContract,
         fromBlock,
         toBlock,
       )),
-      ...(await this.getLogsByTopic(this.topicOrderTaken, fromBlock, toBlock)),
+      ...(await this.getLogsByTopic(
+        this.topicOrderTaken,
+        this.orderContract,
+        fromBlock,
+        toBlock,
+      )),
+      ...(await this.getLogsByTopic(
+        this.topicSubmitDeliveryTx,
+        this.escrowContract,
+        fromBlock,
+        toBlock,
+      )),
+      ...(await this.getLogsByTopic(
+        this.topicConfirmReceipt,
+        this.escrowContract,
+        fromBlock,
+        toBlock,
+      )),
     ].sort((a, b) =>
       a.blockNumber === b.blockNumber
         ? a.index - b.index
@@ -171,7 +206,7 @@ export class OtcOrdersIndexerService implements OnModuleInit {
       await this.eventRepo.upsert(
         this.eventRepo.create({
           chainId: this.chainId,
-          contract: this.contract,
+          contract: this.orderContract,
           orderId: this.readOrderId(parsed),
           eventName: parsed.name,
           txHash: l.transactionHash,
@@ -191,11 +226,12 @@ export class OtcOrdersIndexerService implements OnModuleInit {
 
   private async getLogsByTopic(
     topic0: string,
+    contract: string,
     fromBlock: number,
     toBlock: number,
   ) {
     return this.provider.getLogs({
-      address: this.contract,
+      address: contract,
       fromBlock,
       toBlock,
       topics: [topic0],
@@ -208,7 +244,15 @@ export class OtcOrdersIndexerService implements OnModuleInit {
         topics: l.topics as string[],
         data: l.data,
       });
-      if (!desc) return null;
+      if (!desc) {
+        const escrowDesc = this.escrowIface.parseLog({
+          topics: l.topics as string[],
+          data: l.data,
+        });
+        if (escrowDesc) {
+          return { name: escrowDesc.name, args: escrowDesc.args };
+        } else return null;
+      }
       return { name: desc.name, args: desc.args };
     } catch {
       return null;
@@ -258,7 +302,7 @@ export class OtcOrdersIndexerService implements OnModuleInit {
         this.orderRepo.create({
           orderId,
           chainId: this.chainId,
-          contract: this.contract,
+          contract: this.orderContract,
           seller,
           sellToken,
           sellAmount,
@@ -286,7 +330,7 @@ export class OtcOrdersIndexerService implements OnModuleInit {
         .values({
           orderId,
           chainId: this.chainId,
-          contract: this.contract,
+          contract: this.orderContract,
           seller: '0x0000000000000000000000000000000000000000',
           sellToken: '0x0000000000000000000000000000000000000000',
           sellAmount: '0',
@@ -328,7 +372,7 @@ export class OtcOrdersIndexerService implements OnModuleInit {
         .values({
           orderId,
           chainId: this.chainId,
-          contract: this.contract,
+          contract: this.orderContract,
           seller: '0x0000000000000000000000000000000000000000',
           sellToken: '0x0000000000000000000000000000000000000000',
           sellAmount: '0',
@@ -351,6 +395,24 @@ export class OtcOrdersIndexerService implements OnModuleInit {
           status: 'TAKEN',
           buyer,
           tradeId,
+          updatedBlock: String(l.blockNumber),
+          lastTxHash: l.transactionHash,
+        },
+      );
+    }
+
+    if (eventName === 'DeliverySubmitted') {
+      const tradeId =
+        typeof args.tradeId === 'bigint'
+          ? args.tradeId.toString()
+          : String(args.tradeId);
+      const txId = String(args.txid);
+
+      await this.orderRepo.update(
+        { tradeId },
+        {
+          status: 'DELIVERED',
+          txId,
           updatedBlock: String(l.blockNumber),
           lastTxHash: l.transactionHash,
         },

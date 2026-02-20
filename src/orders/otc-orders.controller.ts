@@ -3,7 +3,7 @@ import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/auth.guard';
 import { OrdersService } from './otc-orders.service';
 import { ListOrdersQueryDto } from '../db/dto/list-orders.query.dto';
-import { PublicOrderBookQueryDto } from 'src/db/dto/public-orderbook.query.dto';
+import { PublicOrderBookQueryDto } from '../db/dto/public-orderbook.query.dto';
 import { Public } from '../auth/public.decorator';
 
 type AuthedRequest = Request & { user?: any };
