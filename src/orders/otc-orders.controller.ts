@@ -35,6 +35,23 @@ export class OrdersController {
     };
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('summary')
+  async summary(@Req() req: AuthedRequest) {
+    // ✅ jwt.strategy validate()
+    const address =
+      req.user?.address ??
+      req.user?.wallet ??
+      req.user?.sub ??
+      req.user?.seller;
+
+    const summary = await this.orders.getSummary(address);
+    return {
+      ok: true,
+      summary,
+    };
+  }
+
   @Public()
   @Get('public')
   async publicBook(@Query() q: PublicOrderBookQueryDto) {

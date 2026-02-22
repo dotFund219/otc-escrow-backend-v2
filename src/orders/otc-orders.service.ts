@@ -15,16 +15,30 @@ export class OrdersService {
   async listBySeller(seller: string, q: ListOrdersQueryDto) {
     const limit = q.limit ?? 50;
 
-    const where: any = {
-      seller: seller.toLowerCase(),
-    };
+    const where: [any, any] = [
+      {
+        seller: seller.toLowerCase(),
+      },
+      {
+        buyer: seller.toLowerCase(),
+      },
+    ];
 
     // chainId / status filter
-    if (typeof q.chainId === 'number') where.chainId = q.chainId;
-    if (q.status) where.status = q.status;
+    if (typeof q.chainId === 'number') {
+      where[0].chainId = q.chainId;
+      where[1].chainId = q.chainId;
+    }
+    if (q.status) {
+      where[0].status = q.status;
+      where[1].status = q.status;
+    }
 
     // cursor pagination: orderId < cursor
-    if (q.cursor) where.orderId = LessThan(q.cursor);
+    if (q.cursor) {
+      where[0].orderId = LessThan(q.cursor);
+      where[1].orderId = LessThan(q.cursor);
+    }
 
     const rows = await this.repo.find({
       where,
@@ -62,5 +76,50 @@ export class OrdersService {
 
     const nextCursor = rows.length ? rows[rows.length - 1].orderId : null;
     return { rows, nextCursor };
+  }
+
+  async getSummary(seller: string) {
+    const totalOrders = await this.repo.count({
+      where: [{ seller: seller }, { buyer: seller }],
+    });
+    const openOrders = await this.repo.count({
+      where: [
+        { seller, status: 'OPEN' },
+        { buyer: seller, status: 'OPEN' },
+      ],
+    });
+    const cancelledOrders = await this.repo.count({
+      where: [
+        { seller, status: 'CANCELLED' },
+        { buyer: seller, status: 'CANCELLED' },
+      ],
+    });
+    const takenOrders = await this.repo.count({
+      where: [
+        { seller, status: 'TAKEN' },
+        { buyer: seller, status: 'TAKEN' },
+      ],
+    });
+    const deliveredOrders = await this.repo.count({
+      where: [
+        { seller, status: 'DELIVERED' },
+        { buyer: seller, status: 'DELIVERED' },
+      ],
+    });
+    const finishedOrders = await this.repo.count({
+      where: [
+        { seller, status: 'FINISHED' },
+        { buyer: seller, status: 'FINISHED' },
+      ],
+    });
+
+    return {
+      total: totalOrders,
+      open: openOrders,
+      cancelled: cancelledOrders,
+      taken: takenOrders,
+      delivered: deliveredOrders,
+      finished: finishedOrders,
+    };
   }
 }

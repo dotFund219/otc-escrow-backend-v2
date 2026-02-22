@@ -11,6 +11,7 @@ import { SyncStateEntity } from './db/entities/sync-state.entity';
 import { OtcOrderEntity } from './db/entities/otc-order.entity';
 import { OtcOrderEventEntity } from './db/entities/otc-order-event.entity';
 import { OrdersModule } from './orders/otc-orders.module';
+import { UsersModule } from './user/users.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { OrdersModule } from './orders/otc-orders.module';
     OtcOrdersIndexerModule,
     AuthModule,
     OrdersModule,
+    UsersModule,
   ],
 })
 export class AppModule {}

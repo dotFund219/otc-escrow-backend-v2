@@ -418,5 +418,21 @@ export class OtcOrdersIndexerService implements OnModuleInit {
         },
       );
     }
+
+    if (eventName === 'ReceiptConfirmed') {
+      const tradeId =
+        typeof args.tradeId === 'bigint'
+          ? args.tradeId.toString()
+          : String(args.tradeId);
+
+      await this.orderRepo.update(
+        { tradeId },
+        {
+          status: 'FINISHED',
+          updatedBlock: String(l.blockNumber),
+          lastTxHash: l.transactionHash,
+        },
+      );
+    }
   }
 }
