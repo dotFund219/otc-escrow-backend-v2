@@ -3,13 +3,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, Repository } from 'typeorm';
 import { OtcOrderEntity } from '../db/entities/otc-order.entity';
 import { ListOrdersQueryDto } from '../db/dto/list-orders.query.dto';
-import { PublicOrderBookQueryDto } from 'src/db/dto/public-orderbook.query.dto';
+import { PublicOrderBookQueryDto } from '../db/dto/public-orderbook.query.dto';
+import { OtcOrderEventEntity } from '../db/entities/otc-order-event.entity';
 
 @Injectable()
 export class OrdersService {
   constructor(
     @InjectRepository(OtcOrderEntity)
     private readonly repo: Repository<OtcOrderEntity>,
+    @InjectRepository(OtcOrderEventEntity)
+    private readonly eventRepo: Repository<OtcOrderEventEntity>,
   ) {}
 
   async listBySeller(seller: string, q: ListOrdersQueryDto) {
@@ -121,5 +124,9 @@ export class OrdersService {
       delivered: deliveredOrders,
       finished: finishedOrders,
     };
+  }
+
+  async findByTxId(txId: string) {
+    return await this.eventRepo.findOne({ where: { txHash: txId } });
   }
 }

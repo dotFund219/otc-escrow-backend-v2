@@ -1,10 +1,11 @@
-import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Req, UseGuards, Param } from '@nestjs/common';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/auth.guard';
 import { OrdersService } from './otc-orders.service';
 import { ListOrdersQueryDto } from '../db/dto/list-orders.query.dto';
 import { PublicOrderBookQueryDto } from '../db/dto/public-orderbook.query.dto';
 import { Public } from '../auth/public.decorator';
+import { sleep } from '../common/funcs';
 
 type AuthedRequest = Request & { user?: any };
 
@@ -60,6 +61,41 @@ export class OrdersController {
       ok: true,
       nextCursor,
       orders: rows,
+    };
+  }
+
+  @Public()
+  @Get('tx/:txId')
+  async getByTxId(
+    @Param('txId') txId: string,
+    @Query('waitMs') waitMs?: string, // optional: client can request waiting
+  ) {
+    const maxWait = Math.min(Number(waitMs ?? 5000) || 10000, 10000); // cap at 5s
+    const interval = 500; // 0.5s polling
+    const start = Date.now();
+
+    // quick first check
+    let order = await this.orders.findByTxId(txId);
+    if (order) {
+      return { ok: true, order, waitedMs: 0 };
+    }
+
+    // wait up to maxWait (<= 5s)
+    while (Date.now() - start < maxWait) {
+      await sleep(interval);
+
+      order = await this.orders.findByTxId(txId);
+      if (order) {
+        return { ok: true, order, waitedMs: Date.now() - start };
+      }
+    }
+
+    // not found after waiting
+    return {
+      ok: false,
+      order: null,
+      waitedMs: Date.now() - start,
+      message: 'Order not indexed yet. Please retry.',
     };
   }
 }
