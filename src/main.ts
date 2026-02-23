@@ -6,12 +6,17 @@ async function bootstrap() {
 
   app.enableCors({
     origin: [
+      // 'https://otc-escrow.vercel.app',
       'http://192.168.0.115:5173', // React Vite
       'http://localhost:3000', // same origin
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true, // SIWE + cookie/JWT support
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'ngrok-skip-browser-warning',
+    ],
   });
 
   await app.listen(process.env.PORT ?? 3000);
