@@ -4,7 +4,9 @@ import {
   Column,
   CreateDateColumn,
   Index,
+  OneToMany,
 } from 'typeorm';
+import { KycUploadEntity } from './kyc-upload.entity';
 
 @Entity({ name: 'users' })
 export class User {
@@ -33,4 +35,7 @@ export class User {
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @OneToMany(() => KycUploadEntity, (k) => k.user)
+  kycUploads!: KycUploadEntity[];
 }

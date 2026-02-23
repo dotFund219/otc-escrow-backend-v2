@@ -55,7 +55,7 @@ export class KycController {
       },
       storage: diskStorage({
         destination: (req, file, cb) => {
-          // dist 기준이 아니라 "프로젝트 루트/uploads/kyc"에 저장
+          // store in project root under /uploads/kyc instead of inside dist
           const uploadRoot = path.join(process.cwd(), 'uploads', 'kyc');
           ensureDir(uploadRoot);
           cb(null, uploadRoot);
@@ -79,9 +79,9 @@ export class KycController {
   async upload(@UploadedFile() file: Multer.File, @Req() req: any) {
     if (!file) throw new BadRequestException('No file uploaded.');
 
-    // ✅ 여기서 유저 식별:
-    // 1) 네 auth guard가 req.user를 채워주면 그걸 사용
-    // 2) 아직 없으면 임시로 "x-address" 헤더로도 받게 해둠
+    // ✅ identify user here:
+    // 1) if the auth guard has populated req.user, use it
+    // 2) otherwise temporarily accept an "x-address" header as fallback
     const address =
       req.user?.address ??
       req.user?.wallet ??

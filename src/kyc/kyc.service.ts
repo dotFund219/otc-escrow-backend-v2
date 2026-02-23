@@ -14,8 +14,8 @@ export class KycService {
     private readonly users: Repository<User>,
   ) {}
 
-  // 프로젝트마다 인증/유저 식별 방식이 다르니
-  // 여기서는 "address"로 유저를 찾는 형태를 기본 제공.
+  // Authentication/user identification varies per project
+  // here we provide a default that looks up users by "address".
   async resolveUserByAddress(address?: string) {
     if (!address) throw new UnauthorizedException('No user address.');
     const user = await this.users.findOne({

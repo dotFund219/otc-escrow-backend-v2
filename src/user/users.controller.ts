@@ -36,6 +36,7 @@ export class UsersController {
       role: user.role,
       kycTier: user.kycTier,
       createdAt: user.createdAt,
+      kyc: user.kyc,
     };
   }
 }
