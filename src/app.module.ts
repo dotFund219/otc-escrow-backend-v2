@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 
 import { AuthModule } from './auth/auth.module';
 import { User } from './db/entities/user.entity';
@@ -12,11 +14,18 @@ import { OtcOrderEntity } from './db/entities/otc-order.entity';
 import { OtcOrderEventEntity } from './db/entities/otc-order-event.entity';
 import { OrdersModule } from './orders/otc-orders.module';
 import { UsersModule } from './user/users.module';
+import { KycModule } from './kyc/kyc.module';
+import { KycUploadEntity } from './db/entities/kyc-upload.entity';
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
     ConfigModule.forRoot({ isGlobal: true }),
+
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'uploads'),
+      serveRoot: '/uploads',
+    }),
 
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
@@ -33,6 +42,7 @@ import { UsersModule } from './user/users.module';
           SyncStateEntity,
           OtcOrderEntity,
           OtcOrderEventEntity,
+          KycUploadEntity,
         ],
         synchronize: true,
         charset: 'utf8mb4',
@@ -42,6 +52,7 @@ import { UsersModule } from './user/users.module';
     AuthModule,
     OrdersModule,
     UsersModule,
+    KycModule,
   ],
 })
 export class AppModule {}
