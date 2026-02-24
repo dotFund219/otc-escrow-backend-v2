@@ -6,7 +6,7 @@ async function bootstrap() {
 
   app.enableCors({
     origin: [
-      // 'https://otc-escrow.vercel.app',
+      'https://otc-escrow.vercel.app',
       'http://192.168.0.115:5173', // React Vite
       'http://localhost:3000', // same origin
     ],

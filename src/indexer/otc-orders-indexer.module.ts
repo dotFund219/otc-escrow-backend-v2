@@ -6,6 +6,7 @@ import { OtcOrderEntity } from '../db/entities/otc-order.entity';
 import { OtcOrderEventEntity } from '../db/entities/otc-order-event.entity';
 
 import { OtcOrdersIndexerService } from './otc-orders-indexer.service';
+import { AdminChainService } from './admin-chain.service';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { OtcOrdersIndexerService } from './otc-orders-indexer.service';
       OtcOrderEventEntity,
     ]),
   ],
-  providers: [OtcOrdersIndexerService],
-  exports: [OtcOrdersIndexerService],
+  providers: [OtcOrdersIndexerService, AdminChainService],
+  exports: [OtcOrdersIndexerService, AdminChainService],
 })
 export class OtcOrdersIndexerModule {}

@@ -56,6 +56,9 @@ export class OtcOrdersIndexerService implements OnModuleInit {
   private readonly topicRejectReceipt =
     this.escrowIface.getEvent('ReceiptRejected')!.topicHash;
 
+  private readonly topicAdminResolved =
+    this.escrowIface.getEvent('AdminResolved')!.topicHash;
+
   constructor(
     @InjectRepository(SyncStateEntity)
     private readonly syncRepo: Repository<SyncStateEntity>,
@@ -183,6 +186,12 @@ export class OtcOrdersIndexerService implements OnModuleInit {
       )),
       ...(await this.getLogsByTopic(
         this.topicRejectReceipt,
+        this.escrowContract,
+        fromBlock,
+        toBlock,
+      )),
+      ...(await this.getLogsByTopic(
+        this.topicAdminResolved,
         this.escrowContract,
         fromBlock,
         toBlock,
@@ -454,6 +463,23 @@ export class OtcOrdersIndexerService implements OnModuleInit {
         { tradeId },
         {
           status: 'REJECTED',
+          updatedBlock: String(l.blockNumber),
+          lastTxHash: l.transactionHash,
+        },
+      );
+    }
+
+    if (eventName === 'AdminResolved') {
+      const tradeId =
+        typeof args.tradeId === 'bigint'
+          ? args.tradeId.toString()
+          : String(args.tradeId);
+      const newStatus = Number(args.newStatus);
+
+      await this.orderRepo.update(
+        { tradeId },
+        {
+          status: newStatus == 4 ? 'RELEASED' : 'REFUNDED',
           updatedBlock: String(l.blockNumber),
           lastTxHash: l.transactionHash,
         },

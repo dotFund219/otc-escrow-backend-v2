@@ -6,6 +6,8 @@ export type OrderStatus =
   | 'TAKEN'
   | 'DELIVERED'
   | 'REJECTED'
+  | 'RELEASED'
+  | 'REFUNDED'
   | 'FINISHED';
 
 @Entity('otc_orders')
