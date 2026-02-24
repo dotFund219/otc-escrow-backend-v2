@@ -10,6 +10,7 @@ import { OtcOrderEventEntity } from '../db/entities/otc-order-event.entity';
 
 import abi from './abi/OTCOrders.abi.json';
 import escorwABI from './abi/OTCEscrow.abi.json';
+import { parse } from 'path';
 
 function envInt(name: string, fallback: number) {
   const v = process.env[name];
@@ -225,7 +226,7 @@ export class OtcOrdersIndexerService implements OnModuleInit {
         this.eventRepo.create({
           chainId: this.chainId,
           contract: this.orderContract,
-          orderId: this.readOrderId(parsed),
+          orderId: await this.readOrderId(parsed),
           eventName: parsed.name,
           txHash: l.transactionHash,
           logIndex: l.index,
@@ -277,10 +278,27 @@ export class OtcOrdersIndexerService implements OnModuleInit {
     }
   }
 
-  private readOrderId(parsed: { name: string; args: any }): string {
-    // args.orderId is captured as a named field
-    const v = parsed.args?.orderId;
-    return typeof v === 'bigint' ? v.toString() : String(v);
+  private async readOrderId(parsed: {
+    name: string;
+    args: any;
+  }): Promise<string> {
+    if (
+      parsed.name === 'DeliverySubmitted' ||
+      parsed.name === 'ReceiptConfirmed' ||
+      parsed.name === 'ReceiptRejected' ||
+      parsed.name === 'AdminResolved'
+    ) {
+      const v = parsed.args?.tradeId;
+      const order = await this.orderRepo.findOne({
+        where: { tradeId: typeof v === 'bigint' ? v.toString() : String(v) },
+      });
+      if (order) return order.orderId;
+      throw new Error(`Order not found for tradeId: ${v}`);
+    } else {
+      // args.orderId is captured as a named field
+      const v = parsed.args?.orderId;
+      return typeof v === 'bigint' ? v.toString() : String(v);
+    }
   }
 
   private normalizeArgs(args: any) {
